@@ -232,8 +232,8 @@ void rotate_line_down() {
 void move_vertex(float after_glutx, float after_gluty) {
 	clicked_v_glutx = after_glutx;
 	clicked_v_gluty = after_gluty;
-	qx = clicked_v_glutx;
-	qy = clicked_v_gluty;
+	px = clicked_v_glutx;
+	py = clicked_v_gluty;
 }
 
 
@@ -253,11 +253,12 @@ void mousepress(int button, int state, int x, int y) {
 		
 
 		if (shiftpressed) {
-			if ((fabs(clicked_x_glut - qx) < 0.01) && (fabs(clicked_y_glut - qy) < 0.01)) {
+			//선분의 파란점
+			if ((fabs(clicked_x_glut - px) < 0.04) && (fabs(clicked_y_glut - py) < 0.04)) {
 				printf("line clicked\n");
 				vertex_clicked = 1;
-				clicked_v_glutx = qx;
-				clicked_v_gluty = qy;
+				clicked_v_glutx = px;
+				clicked_v_gluty = py;
 			}
 			for (int i = 0; i < n_object_points; i++) {
 				printf("%lf\n", object[i][0]);
