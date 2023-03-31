@@ -21,9 +21,18 @@ float clicked_x_glut, clicked_y_glut;
 
 float move_angle = 0;
 int shiftpressed = 0;
+int altpressed = 0;
+int ctrlpressed = 0;
 float clicked_v_glutx, clicked_v_gluty;
 int vertex_clicked = 0;
-
+int rightclick_x, rightclick_y;
+float object_move_x = 0;
+float object_move_y = 0;
+float scale_move = 1;
+int prev_x = 0;
+float prev_x_glut = 0;
+float prev_y_glut = 0;
+int prev_exist = 0;
 void draw_axes() {
 	glLineWidth(3.0f);
 	glBegin(GL_LINES);
@@ -154,8 +163,17 @@ void special(int key, int x, int y) {
 			break;
 		case GLUT_KEY_SHIFT_L:
 			shiftpressed = 1;
-			fprintf(stdout, "Left shift pressed\n");
-			
+			fprintf(stdout, "Left shift pressed\n");	
+			glutPostRedisplay();
+			break;
+		case GLUT_KEY_ALT_L:
+			altpressed = 1;
+			fprintf(stdout, "Left alt pressed\n");
+			glutPostRedisplay();
+			break;
+		case GLUT_KEY_CTRL_L:
+			ctrlpressed = 1;
+			fprintf(stdout, "Left ctrl pressed\n");
 			glutPostRedisplay();
 			break;
 	}
@@ -166,7 +184,18 @@ void upspecial(int key, int x, int y) {
 	case GLUT_KEY_SHIFT_L:
 		shiftpressed = 0;
 		fprintf(stdout, "Left shift unpressed\n");
-
+		glutPostRedisplay();
+		break;
+	case GLUT_KEY_ALT_L:
+		altpressed = 0;
+		object_move_x = object_move_y = 0;
+		fprintf(stdout, "Left alt unpressed\n");
+		glutPostRedisplay();
+		break;
+	case GLUT_KEY_CTRL_L:
+		ctrlpressed = 0;
+		scale_move = 1;
+		fprintf(stdout, "Left alt unpressed\n");
 		glutPostRedisplay();
 		break;
 	}
@@ -236,10 +265,56 @@ void move_vertex(float after_glutx, float after_gluty) {
 	py = clicked_v_gluty;
 }
 
+void move_object(float after_glutx, float after_gluty) {
+	object_center_x -= object_move_x;
+	object_center_y -= object_move_y;
+	for (int i = 0; i < n_object_points; i++) {
+		object[i][0] -= object_move_x;
+		object[i][1] -= object_move_y;
+	}
 
-int prevx, prevy;
+	object_move_x = after_glutx - win_to_glut_x(rightclick_x) ;
+	object_move_y = after_gluty - win_to_glut_y(rightclick_y) ;
+
+	object_center_x += object_move_x;
+	object_center_y += object_move_y;
+	for (int i = 0; i < n_object_points; i++) {
+		object[i][0] += object_move_x;
+		object[i][1] += object_move_y;
+	}
+}
+
+void scale_object() {
+	float original_object_center_x, original_object_center_y;
+	original_object_center_x = object_center_x;
+	original_object_center_y = object_center_y;
+
+	//원점으로 transpose
+	object_center_x -= original_object_center_x;
+	object_center_y -= original_object_center_y;
+	for (int i = 0; i < n_object_points; i++) {
+		object[i][0] -= original_object_center_x;
+		object[i][1] -= original_object_center_y;
+	}
+
+	//scaling 적용
+	for (int i = 0; i < n_object_points; i++) {
+		object[i][0] = object[i][0] * scale_move;
+		object[i][1] = object[i][1] * scale_move;
+	}
+
+	//원래 위치로 돌아감
+	object_center_x += original_object_center_x;
+	object_center_y += original_object_center_y;
+	for (int i = 0; i < n_object_points; i++) {
+		object[i][0] += original_object_center_x;
+		object[i][1] += original_object_center_y;
+	}
+}
+
+
+
 void mousepress(int button, int state, int x, int y) {
-
 	if ((button == GLUT_LEFT_BUTTON) && (state == GLUT_DOWN)) {
 		leftbuttonpressed = 1;
 
@@ -250,23 +325,24 @@ void mousepress(int button, int state, int x, int y) {
 		clicked_y_glut = win_to_glut_y(y);
 		printf("Clicked glut coordinate %lf %lf\n", clicked_x_glut, clicked_y_glut);
 		
-		
+		//다갹형 흰점 눌렀는지 확인
+		for (int i = 0; i < n_object_points; i++) {
+			printf("%lf\n", object[i][0]);
+			if (fabs(clicked_x_glut - object[i][0]) < 0.01 && fabs(clicked_y_glut - object[i][1]) < 0.01) {
+				printf("ok");
+				break;
+			}
+		}
 
 		if (shiftpressed) {
 			//선분의 파란점
 			if ((fabs(clicked_x_glut - px) < 0.04) && (fabs(clicked_y_glut - py) < 0.04)) {
-				printf("line clicked\n");
+				printf("line blue vertex clicked\n");
 				vertex_clicked = 1;
 				clicked_v_glutx = px;
 				clicked_v_gluty = py;
 			}
-			for (int i = 0; i < n_object_points; i++) {
-				printf("%lf\n", object[i][0]);
-				if (fabs(clicked_x_glut - object[i][0]) < 0.01 && fabs(clicked_y_glut - object[i][1]) < 0.01) {
-					printf("ok");
-					break;
-				}
-			}
+			
 		}
 
 	}
@@ -275,10 +351,17 @@ void mousepress(int button, int state, int x, int y) {
 		vertex_clicked = 0;
 	}
 		
-	else if ((button == GLUT_RIGHT_BUTTON) && (state == GLUT_DOWN))
+	else if ((button == GLUT_RIGHT_BUTTON) && (state == GLUT_DOWN)) {
 		rightbuttonpressed = 1;
-	else if ((button == GLUT_RIGHT_BUTTON) && (state == GLUT_UP))
+		rightclick_x = x;
+		rightclick_y = y;
+		prev_x_glut = win_to_glut_x(rightclick_x);
+	}
+	else if ((button == GLUT_RIGHT_BUTTON) && (state == GLUT_UP)) {
 		rightbuttonpressed = 0;
+		
+
+	}
 
 	// (d)
 	else if (button == 3) {
@@ -297,13 +380,28 @@ void mousepress(int button, int state, int x, int y) {
 
 
 void mousemove(int x, int y) {
-	
 	float moveto_glutx, moveto_gluty;
 	moveto_glutx = win_to_glut_x(x);
 	moveto_gluty = win_to_glut_y(y);
-	printf("mouse move to %d %d\n", x, x);
+
+	//printf("mouse move to %lf %lf\n", win_to_glut_x(x), prev_x_glut);
+
 	if (vertex_clicked) {
 		move_vertex(moveto_glutx, moveto_gluty);
+	}
+	else if (altpressed) {
+		move_object(moveto_glutx, moveto_gluty);
+	}
+	else if (ctrlpressed) {
+		printf("\n\n\n %lf -> %lf\n", prev_x_glut, moveto_glutx);
+		printf("\n\n\n %lf", moveto_glutx - prev_x_glut);
+		scale_move = 1 + moveto_glutx - prev_x_glut;
+	
+		prev_x_glut = moveto_glutx;
+
+		printf("\n\nthis is scale move %lf\n\n", scale_move);
+		printf("scale : %lf\n", scale_move);
+		scale_object();
 	}
 	glutPostRedisplay();
 }
