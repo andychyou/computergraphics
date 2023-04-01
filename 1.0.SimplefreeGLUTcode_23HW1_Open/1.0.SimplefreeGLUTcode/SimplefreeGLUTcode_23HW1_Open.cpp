@@ -19,7 +19,6 @@ int window_width, window_height;
 
 float clicked_x_glut, clicked_y_glut;
 
-float move_angle = 0;
 int shiftpressed = 0;
 int altpressed = 0;
 int ctrlpressed = 0;
@@ -27,7 +26,6 @@ int f1pressed = 0;
 int f2pressed = 0;
 float clicked_v_glutx, clicked_v_gluty;
 int vertex_clicked = 0;
-int rightclick_x, rightclick_y;
 float object_move_x = 0;
 float object_move_y = 0;
 float scale_move = 1;
@@ -192,6 +190,12 @@ void special(int key, int x, int y) {
 			break;
 		case GLUT_KEY_SHIFT_L:
 			shiftpressed = 1;
+			if ((fabs(clicked_x_glut - px) < 0.04) && (fabs(clicked_y_glut - py) < 0.04)) {
+				printf("line blue vertex clicked\n");
+				vertex_clicked = 1;
+				clicked_v_glutx = px;
+				clicked_v_gluty = py;
+			}
 			fprintf(stdout, "Left shift pressed\n");	
 			glutPostRedisplay();
 			break;
@@ -263,7 +267,7 @@ float win_to_glut_y(int y) {
 }
 
 
-void rotate_line_up() {
+void rotate_line() {
 	
 	float b_px, b_py, b_qx, b_qy, t_x, t_y, length;
 	length = sqrt(pow((px - qx), 2.0) + pow((qx - qy), 2.0));
@@ -277,37 +281,15 @@ void rotate_line_up() {
 	b_qx += t_x;
 	b_qy += t_y;
 
-	move_angle = 0.05;
-	qx = b_qx * cos(move_angle) - b_qy * sin(move_angle);
-	qy = b_qx * sin(move_angle) + b_qy * cos(move_angle);
+	qx = b_qx * cos(rotation_angle_in_degree) - b_qy * sin(rotation_angle_in_degree);
+	qy = b_qx * sin(rotation_angle_in_degree) + b_qy * cos(rotation_angle_in_degree);
 	qx -= t_x;
 	qy -= t_y;
 	glutPostRedisplay();
 
 }
 
-void rotate_line_down() {
 
-	float b_px, b_py, b_qx, b_qy, t_x, t_y, length;
-	length = sqrt(pow((px - qx), 2.0) + pow((qx - qy), 2.0));
-	b_px = px;
-	b_py = py;
-	b_qx = qx;
-	b_qy = qy;
-	//px, py = 0;
-	t_x = -b_px;
-	t_y = -b_py;
-	b_qx += t_x;
-	b_qy += t_y;
-
-	move_angle = -0.05;
-	qx = b_qx * cos(move_angle) - b_qy * sin(move_angle);
-	qy = b_qx * sin(move_angle) + b_qy * cos(move_angle);
-	qx -= t_x;
-	qy -= t_y;
-	glutPostRedisplay();
-
-}
 
 void move_vertex(float after_glutx, float after_gluty) {
 	clicked_v_glutx = after_glutx;
@@ -316,16 +298,32 @@ void move_vertex(float after_glutx, float after_gluty) {
 	py = clicked_v_gluty;
 }
 
-void move_object(float after_glutx, float after_gluty) {
-	object_center_x -= object_move_x;
-	object_center_y -= object_move_y;
-	for (int i = 0; i < n_object_points; i++) {
-		object[i][0] -= object_move_x;
-		object[i][1] -= object_move_y;
-	}
+//void move_object(float after_glutx, float after_gluty) {
+// //object_move_x는 처음 클릭한 거리(한번 클릭하면 다시 클릭할 때까지 유지되는 값)에서 현재 마우스로 움직인 좌표까지의 거리
+//	object_center_x -= object_move_x;
+//	object_center_y -= object_move_y;
+//	for (int i = 0; i < n_object_points; i++) {
+//		object[i][0] -= object_move_x;
+//		object[i][1] -= object_move_y;
+//	}
+//
+//	object_move_x = after_glutx - win_to_glut_x(rightclick_x) ;
+//	object_move_y = after_gluty - win_to_glut_y(rightclick_y) ;
+//
+//	object_center_x += object_move_x;
+//	object_center_y += object_move_y;
+//	for (int i = 0; i < n_object_points; i++) {
+//		object[i][0] += object_move_x;
+//		object[i][1] += object_move_y;
+//	}
+//}
 
-	object_move_x = after_glutx - win_to_glut_x(rightclick_x) ;
-	object_move_y = after_gluty - win_to_glut_y(rightclick_y) ;
+
+
+void move_object(float after_glutx, float after_gluty) {
+	//프레임마다 이동한 거리
+	object_move_x = after_glutx - prev_x_glut;
+	object_move_y = after_gluty - prev_y_glut;
 
 	object_center_x += object_move_x;
 	object_center_y += object_move_y;
@@ -334,6 +332,7 @@ void move_object(float after_glutx, float after_gluty) {
 		object[i][1] += object_move_y;
 	}
 }
+
 
 void scale_object() {
 	float original_object_center_x, original_object_center_y;
@@ -468,10 +467,8 @@ void mousepress(int button, int state, int x, int y) {
 		
 	else if ((button == GLUT_RIGHT_BUTTON) && (state == GLUT_DOWN)) {
 		rightbuttonpressed = 1;
-		rightclick_x = x;
-		rightclick_y = y;
-		prev_x_glut = win_to_glut_x(rightclick_x);
-		prev_y_glut = win_to_glut_y(rightclick_y);
+		prev_x_glut = win_to_glut_x(x);
+		prev_y_glut = win_to_glut_y(y);
 	}
 	else if ((button == GLUT_RIGHT_BUTTON) && (state == GLUT_UP)) {
 		rightbuttonpressed = 0;
@@ -482,11 +479,13 @@ void mousepress(int button, int state, int x, int y) {
 	// (d)
 	else if (button == 3) {
 		fprintf(stdout, "*** Up wheel mouse button was pressed.\n");
-		rotate_line_up();
+		rotation_angle_in_degree = 0.05f;
+		rotate_line();
 	}
 	else if (button == 4) {
 		fprintf(stdout, "*** Down wheel mouse button was pressed.\n");
-		rotate_line_down();
+		rotation_angle_in_degree = -0.05f;
+		rotate_line();
 	}
 
 
@@ -500,9 +499,9 @@ void mousemove(int x, int y) {
 	moveto_glutx = win_to_glut_x(x);
 	moveto_gluty = win_to_glut_y(y);
 
-	//printf("mouse move to %lf %lf\n", win_to_glut_x(x), prev_x_glut);
+	printf("mouse move to %lf %lf\n", moveto_glutx, prev_x_glut);
 
-	if (vertex_clicked) {
+	if (vertex_clicked && shiftpressed) {
 		move_vertex(moveto_glutx, moveto_gluty);
 	}
 	else if (altpressed) {
@@ -510,29 +509,22 @@ void mousemove(int x, int y) {
 	}
 	else if (ctrlpressed) {
 		printf("\n\n\n %lf -> %lf\n", prev_x_glut, moveto_glutx);
-		printf("\n\n\n %lf", moveto_glutx - prev_x_glut);
 		scale_move = 1 + moveto_glutx - prev_x_glut;
-	
-		prev_x_glut = moveto_glutx;
-
-		printf("\n\nthis is scale move %lf\n\n", scale_move);
 		printf("scale : %lf\n", scale_move);
 		scale_object();
 	}
 	else if (f1pressed) {
 		shear_move_x = moveto_glutx - prev_x_glut;
-		printf("prev : %lf next : %lf\n", prev_x_glut, moveto_glutx);
-
-		prev_x_glut = moveto_glutx;
 		shear_object_x();
 	}
 	else if (f2pressed) {
 		shear_move_y = moveto_gluty - prev_y_glut;
-		printf("prev : %lf next : %lf\n", prev_y_glut, moveto_gluty);
-
-		prev_y_glut = moveto_gluty;
 		shear_object_y();
 	}
+
+	//전 위치를 현재 위치로 갱신
+	prev_x_glut = moveto_glutx;
+	prev_y_glut = moveto_gluty;
 	glutPostRedisplay();
 }
 	
@@ -569,10 +561,10 @@ void initialize_renderer(void) {
 	register_callbacks();
 	r = 250.0f / 255.0f, g = 128.0f / 255.0f, b = 114.0f / 255.0f; // Background color = Salmon
 	//px,py가 무게중심
-	px = -0.75f, py = 0.20f, qx = -0.25f, qy = 0.20f;
+	px = -0.5f, py = 0.5f, qx = -0.7f, qy = 0.20f;
 	rotation_angle_in_degree = 1.0f; // 1 degree
 	
-	float sq_cx = 0.55f, sq_cy = -0.45f, sq_side = 0.25f;
+	/*float sq_cx = 0.55f, sq_cy = -0.45f, sq_side = 0.25f;
 	object[0][0] = sq_cx + sq_side;
 	object[0][1] = sq_cy + sq_side;
 	object[1][0] = sq_cx + 0.5 * sq_side;
@@ -584,7 +576,19 @@ void initialize_renderer(void) {
 	object[4][0] = sq_cx - 0.5 * sq_side;
 	object[4][1] = sq_cy - 0.5 * sq_side;
 	object[5][0] = sq_cx + sq_side;
-	object[5][1] = sq_cy - sq_side;
+	object[5][1] = sq_cy - sq_side;*/
+	object[0][0] = 1.0f;
+	object[0][1] = -0.3f;
+	object[1][0] = 1.2f;
+	object[1][1] = -0.7f;
+	object[2][0] = 1.0f;
+	object[2][1] = -0.4f;
+	object[3][0] = 0.4f;
+	object[3][1] = -0.4f;
+	object[4][0] = 0.3f;
+	object[4][1] = -0.3f;
+	object[5][0] = -0.1f;
+	object[5][1] = -0.1f;
 	object_center_x = object_center_y = 0.0f;
 	for (int i = 0; i < n_object_points; i++) {
 		object_center_x += object[i][0];
@@ -697,3 +701,7 @@ void main(int argc, char *argv[]) {
 	glutMainLoop();
 	fprintf(stdout, "^^^ The control is at the end of main function now.\n\n");
 }
+
+//special 키들 중에서 shift, ctrl, alt는 keyrepeat(누르면 계속 눌리는 걸 감지하는 거)가 안됐다. 화살표나 a-z의 키들은 누르면 계속 눌리는 걸 감지해서 printf가 누르는 동안 계속 나온다면
+//얘네 셋은 한번만 눌리는 걸 인식한다. 그래서 누르고 있는 동안만 동작하고 싶은 게 있다면, flag 변수를 하나 만들어 눌릴 때 1로 세팅하고, unpressed 콜백함수를 glutSpecialUpFunc(upspecial) 이렇게 정의해서 
+//땟을 때 flag를 0으로 해서 flag 가 1일 때 동작을 작동하게 하면 된다.
