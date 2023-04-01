@@ -23,6 +23,8 @@ float move_angle = 0;
 int shiftpressed = 0;
 int altpressed = 0;
 int ctrlpressed = 0;
+int f1pressed = 0;
+int f2pressed = 0;
 float clicked_v_glutx, clicked_v_gluty;
 int vertex_clicked = 0;
 int rightclick_x, rightclick_y;
@@ -33,6 +35,14 @@ int prev_x = 0;
 float prev_x_glut = 0;
 float prev_y_glut = 0;
 int prev_exist = 0;
+
+float my_object[7][2];
+float my_object_center_x = 0;
+float my_object_center_y = 0;
+int my_n_object_points = 7;
+float shear_move_x, shear_move_y;
+int shear_right;
+
 void draw_axes() {
 	glLineWidth(3.0f);
 	glBegin(GL_LINES);
@@ -93,6 +103,25 @@ void draw_object(void) {
 	glPointSize(1.0f);
 }
 
+void draw_my_object() {
+	glBegin(GL_LINE_LOOP);
+	glColor3f(0.0f, 1.0f, 0.0f);
+	for (int i = 0; i < my_n_object_points; i++)
+		glVertex2f(my_object[i][0], my_object[i][1]);
+	glEnd();
+	glPointSize(5.0f);
+
+	glBegin(GL_POINTS);
+	glColor3f(1.0f, 1.0f, 1.0f);
+	for (int i = 0; i < my_n_object_points; i++) {
+		glVertex2f(my_object[i][0], my_object[i][1]);
+	}
+	glColor3f(0.0f, 0.0f, 1.0f);
+	glVertex2f(my_object_center_x, my_object_center_y);
+	glEnd();
+	glPointSize(1.0f);
+}
+
 void display(void) {
 	glClearColor(r, g, b, 1.0f); 
 	glClear(GL_COLOR_BUFFER_BIT);
@@ -100,6 +129,7 @@ void display(void) {
 	draw_axes();
 	draw_line(px, py, qx, qy);
 	draw_object();
+	draw_my_object();
 	glFlush();
 }
 
@@ -135,7 +165,6 @@ void keyboard(unsigned char key, int x, int y) {
 
 //일반적인 문자 버튼 외의 버튼들 ex. shift
 void special(int key, int x, int y) {
-	printf("special key : %c\n", key);
 	switch (key) {
 		case GLUT_KEY_LEFT:
 			r -= 0.1f;
@@ -176,11 +205,22 @@ void special(int key, int x, int y) {
 			fprintf(stdout, "Left ctrl pressed\n");
 			glutPostRedisplay();
 			break;
+		case GLUT_KEY_F1:
+			f1pressed = 1;
+			fprintf(stdout, "F1 pressed\n");
+			glutPostRedisplay();
+			break;
+		case GLUT_KEY_F2:
+			f2pressed = 1;
+			fprintf(stdout, "F2 pressed\n");
+			glutPostRedisplay();
+			break;
 	}
 }
 
 void upspecial(int key, int x, int y) {
-	switch (key){
+
+	switch (key) {
 	case GLUT_KEY_SHIFT_L:
 		shiftpressed = 0;
 		fprintf(stdout, "Left shift unpressed\n");
@@ -198,6 +238,17 @@ void upspecial(int key, int x, int y) {
 		fprintf(stdout, "Left alt unpressed\n");
 		glutPostRedisplay();
 		break;
+	case GLUT_KEY_F1:
+		f1pressed = 0;
+		fprintf(stdout, "F1 unpressed\n");
+		glutPostRedisplay();
+		break;
+	case GLUT_KEY_F2:
+		f2pressed = 0;
+		fprintf(stdout, "F2 unpressed\n");
+		glutPostRedisplay();
+		break;
+	
 	}
 }
 
@@ -312,6 +363,70 @@ void scale_object() {
 	}
 }
 
+void shear_object_x() {
+	float original_object_center_x, original_object_center_y;
+	original_object_center_x = my_object_center_x;
+	original_object_center_y = my_object_center_y;
+
+	//원점으로 transpose
+	my_object_center_x -= original_object_center_x;
+	my_object_center_y -= original_object_center_y;
+	for (int i = 0; i < my_n_object_points; i++) {
+		my_object[i][0] -= original_object_center_x;
+		my_object[i][1] -= original_object_center_y;
+	}
+
+	//shearing 적용
+	my_object_center_x += shear_move_x * my_object_center_y;
+	for (int i = 0; i < my_n_object_points; i++) {
+		float x = my_object[i][0];
+		float y = my_object[i][1];
+		my_object[i][0] = my_object[i][0] + shear_move_x * y;
+		//my_object[i][1] = my_object[i][1] + shear_move_y * x;
+	}
+	
+
+	//원래 위치로 돌아감
+	my_object_center_x += original_object_center_x;
+	my_object_center_y += original_object_center_y;
+	for (int i = 0; i < my_n_object_points; i++) {
+		my_object[i][0] += original_object_center_x;
+		my_object[i][1] += original_object_center_y;
+	}
+}
+
+void shear_object_y() {
+	float original_object_center_x, original_object_center_y;
+	original_object_center_x = my_object_center_x;
+	original_object_center_y = my_object_center_y;
+
+	//원점으로 transpose
+	my_object_center_x -= original_object_center_x;
+	my_object_center_y -= original_object_center_y;
+	for (int i = 0; i < my_n_object_points; i++) {
+		my_object[i][0] -= original_object_center_x;
+		my_object[i][1] -= original_object_center_y;
+	}
+
+	//shearing 적용
+	my_object_center_y += shear_move_y * my_object_center_x;
+
+	for (int i = 0; i < my_n_object_points; i++) {
+		float x = my_object[i][0];
+		float y = my_object[i][1];
+		//my_object[i][0] = my_object[i][0] + shear_move_x * y;
+		my_object[i][1] = my_object[i][1] + shear_move_y * x;
+	}
+
+
+	//원래 위치로 돌아감
+	my_object_center_x += original_object_center_x;
+	my_object_center_y += original_object_center_y;
+	for (int i = 0; i < my_n_object_points; i++) {
+		my_object[i][0] += original_object_center_x;
+		my_object[i][1] += original_object_center_y;
+	}
+}
 
 
 void mousepress(int button, int state, int x, int y) {
@@ -356,6 +471,7 @@ void mousepress(int button, int state, int x, int y) {
 		rightclick_x = x;
 		rightclick_y = y;
 		prev_x_glut = win_to_glut_x(rightclick_x);
+		prev_y_glut = win_to_glut_y(rightclick_y);
 	}
 	else if ((button == GLUT_RIGHT_BUTTON) && (state == GLUT_UP)) {
 		rightbuttonpressed = 0;
@@ -402,6 +518,20 @@ void mousemove(int x, int y) {
 		printf("\n\nthis is scale move %lf\n\n", scale_move);
 		printf("scale : %lf\n", scale_move);
 		scale_object();
+	}
+	else if (f1pressed) {
+		shear_move_x = moveto_glutx - prev_x_glut;
+		printf("prev : %lf next : %lf\n", prev_x_glut, moveto_glutx);
+
+		prev_x_glut = moveto_glutx;
+		shear_object_x();
+	}
+	else if (f2pressed) {
+		shear_move_y = moveto_gluty - prev_y_glut;
+		printf("prev : %lf next : %lf\n", prev_y_glut, moveto_gluty);
+
+		prev_y_glut = moveto_gluty;
+		shear_object_y();
 	}
 	glutPostRedisplay();
 }
@@ -462,6 +592,42 @@ void initialize_renderer(void) {
 	}
 	object_center_x /= n_object_points;
 	object_center_y /= n_object_points;
+
+
+	float my_object_x_offset, my_object_y_offset;
+	my_object_x_offset = 0.4f;
+	my_object_y_offset = 0.4f;
+
+	my_object[0][0] = 0.0f;
+	my_object[0][1] = 0.0f;
+	my_object[1][0] = 0.0f;
+	my_object[1][1] = 0.2f;
+	my_object[5][0] = 0.5f;
+	my_object[5][1] = -0.1f;
+	my_object[6][0] = 0.5f;
+	my_object[6][1] = 0.0f;
+	my_object[2][0] = 0.5f;
+	my_object[2][1] = 0.2f;
+	my_object[3][0] = 0.5f;
+	my_object[3][1] = 0.3f;
+	my_object[4][0] = 0.6f;
+	my_object[4][1] = 0.1f;
+	for (int i = 0; i < my_n_object_points; i++) {
+		my_object[i][0] += my_object_x_offset;
+		my_object[i][1] += my_object_y_offset;
+	}
+	for (int i = 0; i < my_n_object_points; i++) {
+
+		my_object_center_x += my_object[i][0];
+		my_object_center_y += my_object[i][1];
+
+	}
+
+	my_object_center_x /= my_n_object_points;
+	my_object_center_y /= my_n_object_points;
+
+
+	
 }
 
 void initialize_glew(void) {
